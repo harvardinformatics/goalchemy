@@ -23,6 +23,36 @@ logger = logging.getLogger()
 logger.setLevel(logging.getLevelName(os.environ.get('GOALCHEMY_LOGLEVEL','ERROR')))
 
 
+def loadGoaFile(store,filename,commitcount):
+    if not os.path.exists(filename):
+        raise Exception('File %s does not exist.' % filename)
+
+    savedcount = 0
+    errors = []
+    with open(filename,'r') as f:
+        for line in f:
+            line = line.strip()
+            if line == '' or line.startswith('!'):
+                continue
+            row = line.split('\t')
+
+            try:
+                store.storeGoaRow(row)
+                savedcount += 1
+            except Exception as e:
+                errors.append(str(e))
+                logger.debug('Error loading row: %s\n%s\n%s' % (str(e),line,traceback.format_exc()))
+
+            if savedcount > 0 and savedcount % commitcount == 0:
+                store.commit()
+                logger.info('Saved %d records' % savedcount)
+
+    store.commit()
+    logger.info('%d records saved' % savedcount)
+    if len(errors) > 0:
+        logger.error('Errors occurred during loading:\n%s' % '\n'.join(errors))
+
+
 def initArgs():
     '''
     Setup arguments with parameterdef, check envs, parse commandline, return args
@@ -141,33 +171,7 @@ def main():
             store.create()
             logger.info('Created database tables.')
         else:
-            if not os.path.exists(filename):
-                raise Exception('File %s does not exist.' % filename)
-
-            savedcount = 0
-            errors = []
-            with open(filename,'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line == '' or line.startswith('!'):
-                        continue
-                    row = line.split('\t')
-
-                    try:
-                        store.storeGoaRow(row)
-                        savedcount += 1
-                    except Exception as e:
-                        errors.append(str(e))
-                        logger.debug('Error loading row: %s\n%s\n%s' % (str(e),line,traceback.format_exc()))
-
-                    if savedcount > 0 and savedcount % commitcount == 0:
-                        store.commit()
-                        logger.info('Saved %d records' % savedcount)
-
-            store.commit()
-            logger.info('%d records saved' % savedcount)
-            if len(errors) > 0:
-                logger.error('Errors occurred during loading:\n%s' % '\n'.join(errors))
+            loadGoaFile(store,filename,commitcount)
 
     except Exception as e:
         print '%s:\n%s' % (str(e), traceback.format_exc())
