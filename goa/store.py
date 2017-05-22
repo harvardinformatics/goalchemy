@@ -11,7 +11,7 @@ Created on  2017-04-25 12:39:14
 '''
 import os
 from sqlalchemy.engine import create_engine
-from sqlalchemy import MetaData, Column, Table, types, ForeignKey, UniqueConstraint
+from sqlalchemy import MetaData, Column, Table, types, UniqueConstraint
 from sqlalchemy.orm import sessionmaker
 import logging
 from datetime import datetime
@@ -108,7 +108,7 @@ class Store(object):
         date = datetime(year,month,day)
 
         i = self.tables['goa'].insert()
-        rs = i.execute(
+        i.execute(
             db=row[0],
             db_object_id=row[1],
             db_object_symbol=row[2],
@@ -125,3 +125,34 @@ class Store(object):
             date=date,
             assigned_by=row[14],
         )
+
+    def searchByIdListFile(self,listfilename):
+        '''
+        Searches by ID list provided by a file.   Very MySQL specific
+        '''
+
+        # Create an in-memory temp table using a hash of the filename
+        import hashlib
+        m = hashlib.md5()
+        m.update(listfilename)
+        tablename = 'tmp_%s' % m.hexdigest()[:11]
+        sql = 'create temporary table %s (id varchar(20)) engine=memory' % tablename
+        self.session.execute(sql)
+        self.session.commit()
+
+        # Load from the local data file
+        sql = "load data local infile '%s' into table %s" % (listfilename,tablename)
+        self.session.execute(sql)
+        self.session.commit()
+
+        results = []
+
+        try: 
+            # Join against the GOA table
+            sql = "select distinct t.id, g.db_object_symbol from goa g inner join %s t on g.db_object_id = t.id" % tablename
+            handle = self.session.execute(sql)
+            results = handle.fetchall()
+        except Exception as e:
+            logger.error('Error selecting goa data from id list %s.' % str(e))
+
+        return results
