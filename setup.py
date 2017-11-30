@@ -39,7 +39,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'goa-loader = goa.loader:main'
+            'goa = goa.cli:main'
         ]
     },
     install_requires=[

@@ -18,18 +18,21 @@ from goa import __version__ as version
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
-logging.basicConfig(format='%(asctime)s: %(message)s',level=logging.ERROR)
+logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.ERROR)
 logger = logging.getLogger()
-logger.setLevel(logging.getLevelName(os.environ.get('GOALCHEMY_LOGLEVEL','ERROR')))
+logger.setLevel(logging.getLevelName(os.environ.get('GOALCHEMY_LOGLEVEL', 'ERROR')))
 
 
-def loadGoaFile(store,filename,commitcount):
+def loadGoaFile(store, filename, commitcount):
+    """
+    Loads a GAF 2.1 goa file from Uniprot
+    """
     if not os.path.exists(filename):
         raise Exception('File %s does not exist.' % filename)
 
     savedcount = 0
     errors = []
-    with open(filename,'r') as f:
+    with open(filename, 'r') as f:
         for line in f:
             line = line.strip()
             if line == '' or line.startswith('!'):
@@ -41,7 +44,7 @@ def loadGoaFile(store,filename,commitcount):
                 savedcount += 1
             except Exception as e:
                 errors.append(str(e))
-                logger.debug('Error loading row: %s\n%s\n%s' % (str(e),line,traceback.format_exc()))
+                logger.debug('Error loading row: %s\n%s\n%s' % (str(e), line, traceback.format_exc()))
 
             if savedcount > 0 and savedcount % commitcount == 0:
                 store.commit()
@@ -52,6 +55,12 @@ def loadGoaFile(store,filename,commitcount):
     if len(errors) > 0:
         logger.error('Errors occurred during loading:\n%s' % '\n'.join(errors))
 
+
+def loadUniprotBlastIds(store, filename, commitcount):
+    """
+    Load Uniprot Blast IDs as aliases
+    """
+    
 
 def initArgs():
     '''
@@ -112,34 +121,39 @@ def initArgs():
             'default'   : '100',
         },
     ]
-        
+
     # Check for environment variable values
     # Set to 'default' if they are found
     for parameterdef in parameterdefs:
-        if os.environ.get(parameterdef['name'],None) is not None:
+        if os.environ.get(parameterdef['name'], None) is not None:
             parameterdef['default'] = os.environ.get(parameterdef['name'])
-            
+
     # Setup argument parser
     parser = ArgumentParser(formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('-V', '--version', action='version', version=version)
-    parser.add_argument('--file',required=False, help='Input data file')
-    
+
     # Use the parameterdefs for the ArgumentParser
     for parameterdef in parameterdefs:
         switches = parameterdef.pop('switches')
         if not isinstance(switches, list):
             switches = [switches]
-            
+
         # Gotta take it off for add_argument
         name = parameterdef.pop('name')
         parameterdef['dest'] = name
         if 'default' in parameterdef:
             parameterdef['help'] += '  [default: %s]' % parameterdef['default']
-        parser.add_argument(*switches,**parameterdef)
-        
+        parser.add_argument(*switches, **parameterdef)
+
         # Gotta put it back on for later
         parameterdef['name'] = name
-        
+
+    subparsers = parser.add_subparsers(help='Subcommands')
+    loadgoa = subparsers.add_parser('load-goa')
+    loadgoa.add_argument('FILE', help='Input data file')
+
+    loadalias = subparsers.add_parser('load-alias')
+    loadalias.add_argument('FILE', help='Input data file')
     args = parser.parse_args()
     return args
 
@@ -155,7 +169,7 @@ def main():
     password    = args.GOALCHEMY_PASSWORD
     host        = args.GOALCHEMY_HOST
     database    = args.GOALCHEMY_DATABASE
-    filename    = args.file
+    filename    = args.FILE
     commitcount = int(args.GOALCHEMY_COMMIT_COUNT)
 
     try:
@@ -171,7 +185,7 @@ def main():
             store.create()
             logger.info('Created database tables.')
         else:
-            loadGoaFile(store,filename,commitcount)
+            loadGoaFile(store, filename, commitcount)
 
     except Exception as e:
         print '%s:\n%s' % (str(e), traceback.format_exc())

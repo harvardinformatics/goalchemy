@@ -12,4 +12,4 @@ Created on  2017-04-25 12:38:15
 
 from store import *
 
-__version__ = '0.1.0'
+__version__ = '0.4.1'
