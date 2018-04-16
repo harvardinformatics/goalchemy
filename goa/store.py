@@ -30,7 +30,7 @@ class Store(object):
     Class that manages interactions with the database.
 
     Table goa
-        with_or_from                Additional identifier(s) to support annotations using certain evidence codes 
+        with_or_from                Additional identifier(s) to support annotations using certain evidence codes
                                     (including IEA, IPI, IGI, IMP, IC and ISS evidences).
     '''
 
@@ -51,8 +51,8 @@ class Store(object):
 
         self.tables = {}
         self.tables['goa'] = Table(
-            'goa', 
-            self.metadata, 
+            'goa',
+            self.metadata,
             Column('id',                            types.Integer, primary_key=True, autoincrement='auto'),
             Column('db',                            types.String(50)),
             Column('db_object_id',                  types.String(20)),
@@ -61,7 +61,7 @@ class Store(object):
             Column('go_id',                         types.String(20)),
             Column('db_reference',                  types.String(50)),
             Column('evidence_code',                 types.String(10)),
-            Column('with_or_from',                  types.String(100)), 
+            Column('with_or_from',                  types.String(100)),
             Column('aspect',                        types.String(1)),
             Column('db_object_name',                types.String(50)),
             Column('db_object_synonym',             types.String(500)),
@@ -162,20 +162,21 @@ class Store(object):
 
         results = []
 
-        try: 
+        try:
             # Join against the GOA table
             sql = """
-                SET SESSION group_concat_max_len = 10000000;
-                select 
-                    distinct t.id, g.db_object_symbol as goa_symbol, group_concat(distinct gt.term separator ';') as go_terms 
-                from 
-                    {tmptable} t 
-                        inner join alias a on (t.id = a.alias and t.source = a.source) 
-                        inner join goa g on (g.db = a.authority and g.db_object_id = a.accession)  
-                        inner join go_term gt on g.go_id = gt.go_id 
-                group by t.id, goa_symbol 
+               select
+                    distinct t.id, g.db_object_symbol as goa_symbol, group_concat(distinct gt.term separator ';') as go_terms
+                from
+                    {tmptable} t
+                        inner join alias a on (t.id = a.alias and t.source = a.source)
+                        inner join goa g on (g.db = a.authority and g.db_object_id = a.accession)
+                        inner join go_term gt on g.go_id = gt.go_id
+                group by t.id, goa_symbol
             """.format(tmptable=tablename).translate(None, "\n")
 
+            print "SQL is:\n%s\n" % sql
+            self.session.execute('SET SESSION group_concat_max_len = 10000000')
             handle = self.session.execute(sql)
             results = handle.fetchall()
         except Exception as e:
@@ -188,28 +189,28 @@ class Store(object):
         Initialize the alias table using the BioSql table (I know.  It is supposed to be there.)
         """
         sql = """
-            insert into alias (authority, accession, alias, source) 
-            select 'UniProtKB', be.accession, be.accession, 'UniProtKB' 
-            from bioentry be 
-            where be.biodatabase_id = :dbid 
+            insert into alias (authority, accession, alias, source)
+            select 'UniProtKB', be.accession, be.accession, 'UniProtKB'
+            from bioentry be
+            where be.biodatabase_id = :dbid
         """.translate(None, "\n")
         self.session.execute(sql, {"dbid": biodatabase_id})
         self.session.commit()
 
         sql = """
             insert into alias (authority, accession, alias, source)
-            select 'UniProtKB', be.accession, concat('UniRef90_',be.accession), 'UniRef90' 
+            select 'UniProtKB', be.accession, concat('UniRef90_',be.accession), 'UniRef90'
             from bioentry be
-            where be.biodatabase_id = :dbid 
+            where be.biodatabase_id = :dbid
         """.translate(None, "\n")
         self.session.execute(sql, {"dbid": biodatabase_id})
         self.session.commit()
 
         sql = """
             insert into alias (authority, accession, alias, source)
-            select 'UniProtKB', be.accession, concat('UniRef100_',be.accession), 'UniRef100' 
+            select 'UniProtKB', be.accession, concat('UniRef100_',be.accession), 'UniRef100'
             from bioentry be
-            where be.biodatabase_id = :dbid 
+            where be.biodatabase_id = :dbid
         """.translate(None, "\n")
         self.session.execute(sql, {"dbid": biodatabase_id})
         self.session.commit()

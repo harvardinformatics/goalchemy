@@ -13,15 +13,17 @@ Created on  2017-04-12 16:13:05
 from setuptools import setup, find_packages
 import re
 
+
 def getVersion():
     version = '0.0.0'
-    with open('goa/__init__.py','r') as f:
+    with open('goa/__init__.py', 'r') as f:
         contents = f.read().strip()
 
     m = re.search(r"__version__ = '([\d\.]+)'", contents)
     if m:
         version = m.group(1)
     return version
+
 
 setup(
     name="goalchemy",
